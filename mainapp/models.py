@@ -1,4 +1,7 @@
 from django.db import models
+from django.contrib.auth import get_user_model
+from django.conf import settings
+
 
 
 NULLABLE = {'blank': True, 'null': True}
@@ -90,3 +93,28 @@ class CourseTeacher(models.Model):
     def delete(self, *args, **kwargs):
         self.deleted = True
         self.save()
+
+
+class CourseFeedback(models.Model):
+
+    RATINGS = (
+        (5, '⭐⭐⭐⭐⭐'),
+        (4, '⭐⭐⭐⭐'),
+        (3, '⭐⭐⭐'),
+        (2, '⭐⭐'),
+        (1, '⭐'),
+
+    )
+
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, verbose_name='курс')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name='пользователь')
+    rating = models.SmallIntegerField(choices=RATINGS, default=5, verbose_name='Рейтинг')
+    feedback = models.TextField(verbose_name='отзыв', default='нет отзыва')
+
+
+    class Meta:
+        verbose_name = ''
+        verbose_name_plural = ''
+
+    def __str__(self):
+        return f'Отзыв на {self.course} от {self.user}'
