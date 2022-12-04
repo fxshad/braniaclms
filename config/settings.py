@@ -27,8 +27,12 @@ SECRET_KEY = 'django-insecure-l+@a^ossqzg-(xo*a17-5p)wva4!5$z96gp#oi!w&&e%16_k%d
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
+if DEBUG:
+    INTERNAL_IPS = [
+        '127.0.0.1'
+    ]
 
 # Application definition
 
@@ -41,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'crispy_forms',
+    'debug_toolbar',
     'social_django',
     'authapp',
     'mainapp',
@@ -54,6 +59,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -155,3 +161,47 @@ SOCIAL_AUTH_GITHUB_KEY = '271fc428ec40072a25d0'
 SOCIAL_AUTH_GITHUB_SECRET = '76d6a3456e83b7d234a2f2213ec9a28f7d6b9bb2'
 
 CRISPY_TEMPLATE_PACK ='bootstrap4'
+
+
+CASHES = {
+    'default': {
+        'BACKEND': 'django_redis.cashe.RedisCashe',
+        'LOCATION': 'redis://127.0.0.1:6379',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient'
+        }
+    }
+}
+
+
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379'
+CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379'
+
+
+EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackends'
+EMAIL_FILE_PATH = 'emails-tmp'
+
+
+LOG_FILE = BASE_DIR / 'log' / 'main_log.log'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'console': {
+            'format': '[%(asctime)s] %(module)s (%(lineno)d)  %(levelname)s %(message)s'
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': LOG_FILE,
+            'formatter': 'console',
+        },
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'console'},
+    },
+    'loggers': {
+        'django': {'level': 'INFO', 'handlers': ['file', 'console']},
+    },
+}

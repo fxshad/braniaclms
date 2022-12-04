@@ -1,0 +1,17 @@
+{% extends 'mainapp/base.html' %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header">
+            first 1000 strings
+            <a href="{% url 'mainapp:logs_download' %}" class="btn btn-outline-warning">download logs</a>
+        </div>
+            <div class="card-body">
+                {% for log in logs %}
+                    {{ log }}<br>
+                {% endfor %}
+            </div>
+
+        {{ logs }}
+    </div>
+{% endblock %}

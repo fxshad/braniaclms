@@ -1,7 +1,10 @@
 from multiprocessing import context
-from django.views.generic import TemplateView, ListView, UpdateView, DeleteView, CreateView, DetailView
+from django.views.generic import TemplateView, ListView, UpdateView, DeleteView, CreateView, DetailView, View
 from django.http import HttpResponse
 from datetime import datetime
+from django.core.cache import cache
+
+from mainapp import tasks
 from mainapp.models import News
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import PermissionRequiredMixin
@@ -9,7 +12,9 @@ from django.shortcuts import get_object_or_404
 from mainapp.models import Course, Lesson, CourseTeacher
 from mainapp.forms import CourseFeedback, CourseFeedbackForm
 from django.template.loader import render_to_string
-from django.http import JsonResponse
+from django.http import JsonResponse, FileResponse, HttpResponseRedirect
+from config import settings
+from django.contrib.auth.mixins import UserPassesTestMixin
 
 
 class ContactsView(TemplateView):
@@ -39,6 +44,13 @@ class ContactsView(TemplateView):
             }
         ]
         return context_data
+
+    def post(self, *args, **kwargs):
+        message_body = self.request.POST.get('message_body')
+        message_from = self.request.user.pk if self.request.user.is_authenticated else None
+        tasks.send_feedback_to_email.delay(message_body, message_from)
+
+        return HttpResponseRedirect(reverse_lazy('mainapp:contacts'))
 
 class CoursesListView(ListView):
     template_name = 'mainapp/courses_list.html'
@@ -96,7 +108,15 @@ class CourseDetailView(TemplateView):
         context_data['course_object'] = get_object_or_404(Course, pk=self.kwargs.get('pk'))
         context_data['lessons'] = Lesson.objects.filter(course=context_data['course_object'])
         context_data['teachers'] = CourseTeacher.objects.filter(courses=context_data['course_object'])
-        context_data['feedback_list'] = CourseFeedback.objects.filter(course=context_data['course_object'])
+
+        feedback_list_key = f'course_feedback_{context_data["course_object"].pk}'
+        cashed_feedback_list = cache.get(feedback_list_key)
+        if cashed_feedback_list is None:
+            context_data['feedback_list'] = CourseFeedback.objects.filter(course=context_data['course_object'])
+            cache.set(feedback_list_key, context_data['feedback_list'], timeout=333)
+        else:
+            context_data['feedback_list'] = cashed_feedback_list
+
         if self.request.user.is_authenticated:
             context_data['feedback_form'] = CourseFeedbackForm(
                 course=context_data['course_object'],
@@ -113,3 +133,34 @@ class CourseFeedbackCreateView(CreateView):
         self.object = form.save()
         rendered_template = render_to_string('mainapp/includes/feedback_card.html', context={'item':self.object})
         return JsonResponse({'card': rendered_template})
+
+
+class LogView(UserPassesTestMixin, TemplateView):
+    template_name = 'mainapp/logs.html'
+
+    def test_func(self):
+        return self.request.user.is_superuser
+
+    def get_context_data(self, **kwargs):
+        context_data = super().get_context_data(**kwargs)
+
+
+
+        log_lines = []
+        with open(settings.BASE_DIR / 'log/main_log.log') as log_file:
+            for i, line in enumerate(log_file):
+                if i == 1000:
+                    break
+                log_lines.insert(0, line)
+        context_data['logs'] = log_lines
+        return context_data
+
+
+class LogDownloadView(UserPassesTestMixin, View):
+
+    def get_context_data(self, **kwargs):
+        context_data = super().get_context_data(**kwargs)
+
+    def get(self, *args, **kwargs):
+
+        return FileResponse(open(settings.LOG_FILE, 'rb'))

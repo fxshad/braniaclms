@@ -117,3 +117,5 @@ fabric.properties
 .history/
 *.vsix
 media
+log/
+emails-tmp/
